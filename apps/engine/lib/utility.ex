@@ -169,12 +169,24 @@ defmodule Utility do
   def get_recent_feed(_commonDB, [], _recentFeedSize, recentFeed) do
     recentFeed
   end
-  def get_recent_feed(commonDB, [feedid | restOfFeedList], recentFeedSize, recentFeed) do
+  def get_recent_feed(commonDB, [feedItem | restOfFeedList], recentFeedSize, recentFeed) do
     cond do
-      length(recentFeed) + 1 == recentFeedSize ->
-        [GenServer.call(commonDB, {:get_tweet, feedId}) | recentFeed]
+      length(recentFeed) == recentFeedSize ->
+        recentFeed
       true ->
-        get_recent_feed(restOfFeedList, recentFeedSize, [GenServer.call(commonDB, {:get_tweet, feedId}) | recentFeed])
+        fromUserId = elem(feedItem, 1)
+        tweetId = elem(feedItem, 0)
+        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId})
+        tweet = elem(tweetContent, 1)
+        tweetCreater = elem(tweetContent, 0)
+        tweetType = 
+        cond do
+          tweetCreater == fromUserId ->
+            :tweet
+          true ->
+            :retweet
+        end
+        get_recent_feed(commonDB, restOfFeedList, recentFeedSize, [ {tweetType, fromUserId, tweet} | recentFeed])
     end
   end
 

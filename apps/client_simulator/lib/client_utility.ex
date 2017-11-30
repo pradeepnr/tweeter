@@ -72,11 +72,31 @@ defmodule ClientUtility do
     end
   end
 
-  def print_feed(feed) do
-    get_string(feed, "")
+  def print_feed(feed, myUserId) do
+    str = get_feed_string(feed, "")
+    cond do
+    str == "" ->
+      IO.puts "########## FEED of #{myUserId} #########\n FEED IS EMPTY \n############# End of Feed #############\n"  
+    true ->
+      IO.puts "########## FEED of #{myUserId} #########\n#{str}############# End of Feed #############\n"
+    end
   end
 
-  def get_string([{createrUserId, tweet} | restFeed], string)
-    
+  def get_feed_string([], str) do
+    str
+  end
+
+  def get_feed_string([ {tweetType, fromUserId, tweet} | restFeed], str) do
+    tweetTypeStr =
+    case tweetType do
+      :tweet ->
+        "TWEET"
+      :retweet ->
+        "RETWEET"
+      _->
+        ""
+    end
+    updatedStr = "#{str}RECEIVED #{tweetTypeStr} from #{fromUserId} \n tweet-> #{tweet}\n"
+    get_feed_string(restFeed, updatedStr)
   end
 end

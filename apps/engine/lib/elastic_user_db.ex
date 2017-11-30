@@ -7,7 +7,7 @@ defmodule ElasticUserDB do
   def init(_args) do
     IO.inspect self(), label: "ElasticUserDB started->"
     state = %{
-        registered_users: %{}, # map<userId, profile>. profile -> %{subscribers: [], following: [], tweet_ids: [], feed: []}
+        registered_users: %{}, # map<userId, profile>. profile -> %{subscribers: [], following: [], tweet_ids: [{tweetId, fromUserId}], feed: []}
         hash_tags: %{}, # map<hash_tags, tweet_id_list>
         mentions: %{}, #map<userId, tweet_id_list> all the tweets in which user is mentioned
         active_users: %{} # map<userId, pid> 
@@ -115,7 +115,7 @@ defmodule ElasticUserDB do
       fn(subscriber, registeredUsersMapAcc) ->
         currentUserProfile = Map.get(registeredUsersMapAcc, subscriber)
         currentFeedList = Map.get(currentUserProfile, :feed)
-        updatedUserProfile = Map.put(currentUserProfile, :feed, [tweetId | currentFeedList])
+        updatedUserProfile = Map.put(currentUserProfile, :feed, [{tweetId, tweetFromUserId}| currentFeedList])
         Map.put(registeredUsersMapAcc, subscriber, updatedUserProfile)
       end
     )

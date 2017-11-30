@@ -2,7 +2,8 @@ defmodule Client do
   use GenServer
   @password "forTesting"
   @global_engine_name :tweeter_engine
-  @redo_timer 3000
+  @redo_tweet_after_login_timer 3000
+  @disconnect_timer 5000
 
   defp serverPid() do
     :global.whereis_name(@global_engine_name)
@@ -77,7 +78,17 @@ defmodule Client do
     str4 = "###############\n"
     IO.puts "#{str1}#{str2}#{str3}#{str4}"
     GenServer.cast(serverPid(), {:tweet, sessionKey, myUserId, randomSentenceToTweet})
-    Process.send_after(self(), {:cast, {self(),{:tweet}}}, @redo_timer * myId)
+
+    # randon 1/5 probability logoff
+    cond do
+      Enum.random(1..5) == 3 ->
+        GenServer.cast(serverPid(), {:logout, sessionKey, myUserId})
+        Process.send_after(self(), {:cast, {self(),{:relogin}}}, @disconnect_timer)
+        IO.puts "#{myUserId} will logoff for #{@disconnect_timer} time"
+      true->
+        Process.send_after(self(), {:cast, {self(),{:tweet}}}, @redo_timer * myId)
+    end
+    
     {:noreply, state}
   end
 
@@ -85,6 +96,7 @@ defmodule Client do
     masterClientId = Map.get(state, :master_client_id)
     myId = Map.get(state, :my_id)
     myUserId = ClientUtility.get_client_id(masterClientId, myId)
+    sessionKey = Map.get(state, :session_key)
     if(tweetFromUserId == createrUserId) do
       str1 = "####### RECEIVE TWEET ########\n"
       str2 = "#{myUserId} received Tweet from #{tweetFromUserId}\n"
@@ -98,7 +110,6 @@ defmodule Client do
         str3 = "tweet -> #{tweet}\n"
         str4 = "###############\n"
         IO.puts "#{str1}#{str2}#{str3}#{str4}"
-        sessionKey = Map.get(state, :session_key)
         GenServer.cast(serverPid(), {:retweet, sessionKey, myUserId, tweetId})
       end
     else
@@ -114,15 +125,34 @@ defmodule Client do
         str3 = "tweet -> #{tweet}\n"
         str4 = "###############\n"
         IO.puts "#{str1}#{str2}#{str3}#{str4}"
-        sessionKey = Map.get(state, :session_key)
         GenServer.cast(serverPid(), {:retweet, sessionKey, myUserId, tweetId})
       end
     end
     {:noreply, state}
   end
 
+  def handle_cast(:relogin, state) do
+    masterClientId = Map.get(state, :master_client_id)
+    myId = Map.get(state, :my_id)
+    myUserId = ClientUtility.get_client_id(masterClientId, myId)
+    {loginResult, info} = GenServer.call(serverPid(), {:login, myUserId, @password, self()})
+        cond do
+          :ok == loginResult ->
+            IO.puts "#{myUserId} Re-login succesfull"
+            state = Map.put(state, :session_key, info)
+            Process.send_after(self(), {:cast, {self(),{:tweet}}}, @redo_tweet_after_login_timer)
+            {:noreply, state}
+          true ->
+            IO.puts "login failed"
+            {:noreply, state}
+        end
+  end
+
   def handle_cast({:receive_recent_feed, feed}, state) do
-    ClientUtility.print_feed(feed)
+    myId = Map.get(state, :my_id)
+    masterClientId = Map.get(state, :master_client_id)
+    myUserId = ClientUtility.get_client_id(masterClientId, myId)
+    ClientUtility.print_feed(feed, myUserId)
     {:noreply, state}
   end
 

@@ -37,7 +37,7 @@ defmodule ClientSimulatorTest do
 
   test "get_tweet_time_out" do
     IO.puts ""
-    totalClients = 1000
+    totalClients = 5
     Enum.map(
       1..totalClients,
       fn(i) ->
@@ -45,5 +45,11 @@ defmodule ClientSimulatorTest do
         IO.puts "timeout for #{i} is #{timeOut}"
       end
     )
+  end
+
+  test "print_feed(feed, myUserId)" do
+    feed = [{:retweet, "c1-3", "tweet1"}, {:tweet, "c2-4", "tweet2"}, {:tweet, "c2-5", "tweet3"}]
+    ClientUtility.print_feed(feed, "myUserId")
+    ClientUtility.print_feed([], "myUserId2")
   end
 end

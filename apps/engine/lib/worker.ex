@@ -136,8 +136,8 @@ defmodule Worker do
     commonDB = Map.get(state, :common_db)
     userDBId = GenServer.call(commonDB, {:get_user_database_id, userId})
     GenServer.cast(userDBId, {:user_id_active, userId, pid})
-    feed = GenServer.call(userDBId, {:get_feeds, userId})
-    topFeed = Utility.get_recent_feed(commonDB, feed, @recent_feed_size, [])
+    feedIds = GenServer.call(userDBId, {:get_feeds, userId})
+    topFeed = Utility.get_recent_feed(commonDB, feedIds, @recent_feed_size, [])
     GenServer.cast(pid, {:receive_recent_feed, topFeed})
     {:noreply, state}
   end
