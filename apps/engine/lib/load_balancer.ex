@@ -3,6 +3,7 @@ defmodule LoadBalancer do
   @engine :tweeter_engine
   @engine_cookie :tweeter_engine_cookie
   @global_engine_name :tweeter_engine
+  @tweet_matrix_time 10000
 
   def start({numOfUserDBs, numOfWorkers}) do
     {:ok, loadBalancerPid} = GenServer.start(__MODULE__, {numOfUserDBs, numOfWorkers}, name: :load_balancer)
@@ -191,10 +192,11 @@ defmodule LoadBalancer do
   def handle_info(:calculate_tweet_matrix, state) do
       tweetCount = Map.get(state, :tweet_count)
       if tweetCount > 0 do
-        IO.puts "#{tweetCount} per second"
+        tweetsPerSec = tweetCount * 1000 |> Kernel.div(@tweet_matrix_time)
+        IO.puts "#{tweetsPerSec} Tweets per Second"
       end
       state = Map.put(state, :tweet_count, 0)
-      Process.send_after(self(), :calculate_tweet_matrix, 1_000) 
+      Process.send_after(self(), :calculate_tweet_matrix, @tweet_matrix_time) 
       {:noreply, state}
     end
 
