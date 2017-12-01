@@ -37,8 +37,10 @@ defmodule LoadBalancer do
           number_of_workers: numOfWorkers,
           session_number: 0,
           session: %{}, # %{session_key => {userId, pid}}
-          workers: []
+          workers: [],
+          tweet_count: 0
         }
+        Process.send_after(self(), :calculate_tweet_matrix, 5_000)
         {:ok, state}
       :fail ->
         {:fail, "could not setup server"}
@@ -155,6 +157,9 @@ defmodule LoadBalancer do
   end
 
   def handle_cast({:tweet, sessionKey, userId, tweet}, state) do
+    tweetCount = Map.get(state, :tweet_count)
+    state = Map.put(state, :tweet_count, tweetCount+1)
+
     sessionMap = Map.get(state, :session)
     validateSessionResult = validate_session(sessionMap, sessionKey, userId)
     if(validateSessionResult == true) do
@@ -173,17 +178,7 @@ defmodule LoadBalancer do
     {:noreply, state}
   end
 
-  defp validate_session(session, sessionKey, userId) do
-    cond do
-      (true == Map.has_key?(session, sessionKey)) and (userId == Map.get(session, sessionKey) |> elem(0)) ->
-        true
-      true ->
-        false
-    end
-  end
-
   # all below are for testing 
-
   def handle_cast(:print, state) do
     randomWorker = Map.get(state, :workers) |> Enum.random
     IO.inspect state, label: "load balancer start->"
@@ -191,5 +186,24 @@ defmodule LoadBalancer do
     GenServer.cast(:common_db, :print)
     GenServer.cast(randomWorker, :print)
     {:noreply, state}
+  end
+
+  def handle_info(:calculate_tweet_matrix, state) do
+      tweetCount = Map.get(state, :tweet_count)
+      if tweetCount > 0 do
+        IO.puts "#{tweetCount} per second"
+      end
+      state = Map.put(state, :tweet_count, 0)
+      Process.send_after(self(), :calculate_tweet_matrix, 1_000) 
+      {:noreply, state}
+    end
+
+  defp validate_session(session, sessionKey, userId) do
+    cond do
+      (true == Map.has_key?(session, sessionKey)) and (userId == Map.get(session, sessionKey) |> elem(0)) ->
+        true
+      true ->
+        false
+    end
   end
 end

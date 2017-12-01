@@ -4,7 +4,7 @@ defmodule Client do
   @global_engine_name :tweeter_engine
   @redo_tweet_after_login_timer 3000
   @disconnect_timer 5000
-  @redo_tweet_timer 500
+  @redo_tweet_timer 100
 
   @hash_tag "#happy_days"
 
