@@ -4,6 +4,9 @@ defmodule Client do
   @global_engine_name :tweeter_engine
   @redo_tweet_after_login_timer 3000
   @disconnect_timer 5000
+  @redo_tweet_timer 1000
+
+  @hash_tag "#happy_days"
 
   defp serverPid() do
     :global.whereis_name(@global_engine_name)
@@ -46,6 +49,7 @@ defmodule Client do
   end
 
   def handle_cast(:subscribe, state) do
+    sessionKey = Map.get(state, :session_key)
     totalClients = Map.get(state, :total_clients)
     masterClientId = Map.get(state, :master_client_id)
     myId = Map.get(state, :my_id)
@@ -57,7 +61,7 @@ defmodule Client do
         myUserId = ClientUtility.get_client_id(masterClientId, myId)
         subscribeTo = ClientUtility.get_client_id(masterClientId, id)
         # IO.puts "#{myUserId} , #{subscribeTo}"
-        GenServer.cast(serverPid(), {:subscribe, myUserId, subscribeTo})
+        GenServer.cast(serverPid(), {:subscribe, sessionKey, myUserId, subscribeTo})
       end
     )
     GenServer.cast(:"#{masterClientId}", :subscription_done)
@@ -71,7 +75,13 @@ defmodule Client do
     myUserId = ClientUtility.get_client_id(masterClientId, myId)
     sentences = Map.get(state, :sentences)
     randomSentenceId = Enum.random(1..tuple_size(sentences)-1)
-    randomSentenceToTweet = elem(sentences, randomSentenceId)
+    mentionUserId = ClientUtility.get_client_id(masterClientId, 1)
+    randomSentenceToTweet = 
+    case Enum.random(1..10) do
+      3 -> "#{elem(sentences, randomSentenceId)} #{@hash_tag}"
+      5 -> "#{elem(sentences, randomSentenceId)} @#{mentionUserId}"
+      _-> "#{elem(sentences, randomSentenceId)}"
+    end
     str1 = "####### TWEETING ########\n"
     str2 = "#{myUserId} Tweeting\n"
     str3 = "tweet -> #{randomSentenceToTweet}\n"
@@ -86,9 +96,21 @@ defmodule Client do
         Process.send_after(self(), {:cast, {self(),{:relogin}}}, @disconnect_timer)
         IO.puts "#{myUserId} will logoff for #{@disconnect_timer} time"
       true->
-        Process.send_after(self(), {:cast, {self(),{:tweet}}}, @redo_timer * myId)
+        Process.send_after(self(), {:cast, {self(),{:tweet}}}, @redo_tweet_timer * myId)
     end
-    
+
+    # randon 1/10 probability get hashtap and mentions
+    if Enum.random(2..3) == 3 do
+        GenServer.cast(serverPid(), {:search_mentions, sessionKey, myUserId, mentionUserId})
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_cast({:receive_search_mentions, tweetContentList}, state) do
+    masterClientId = Map.get(state, :master_client_id)
+    mentionUserId = ClientUtility.get_client_id(masterClientId, 1)
+    ClientUtility.print_tweet_for_mentions(mentionUserId, tweetContentList)
     {:noreply, state}
   end
 

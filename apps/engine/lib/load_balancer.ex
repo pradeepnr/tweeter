@@ -79,6 +79,19 @@ defmodule LoadBalancer do
     end
   end
 
+  def handle_cast({:search_mentions, sessionKey, userId, mention}, state) do
+    validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
+    if(validateSessionResult == true) do
+      randomWorker = Map.get(state, :workers) |> Enum.random
+      tweetList = GenServer.call(randomWorker, {:get_mentions_list, mention})
+      clientPid = Kernel.get_in(state, [:session, sessionKey]) |> elem(1)
+      GenServer.cast(clientPid, {:receive_search_mentions, tweetList})
+      {:noreply, state}
+    else
+      {:noreply, state}
+    end
+  end
+
   def handle_cast(:initialize, state) do
     {:ok, commonDbPid} = GenServer.start(CommonDB, nil, name: :common_db)
     numOfUserDBs = Map.get(state, :number_of_user_dbs)
@@ -105,6 +118,15 @@ defmodule LoadBalancer do
     {:noreply, state}
   end
 
+  def handle_cast({:subscribe, sessionKey, userId, subscribeTo}, state) do
+    validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
+    if(validateSessionResult == true) do
+      randomWorker = Map.get(state, :workers) |> Enum.random
+      GenServer.cast(randomWorker, {:subscribe, userId, subscribeTo})
+    end
+    {:noreply, state}
+  end
+
   def handle_cast({:logout, sessionKey, userId}, state) do
     validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
     if(validateSessionResult == true) do
@@ -120,7 +142,8 @@ defmodule LoadBalancer do
   end
 
   def handle_cast({:tweet, sessionKey, userId, tweet}, state) do
-    validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
+    sessionMap = Map.get(state, :session)
+    validateSessionResult = validate_session(sessionMap, sessionKey, userId)
     if(validateSessionResult == true) do
       randomWorker = Map.get(state, :workers) |> Enum.random
       GenServer.cast(randomWorker, {:tweet, userId, tweet})
@@ -156,17 +179,4 @@ defmodule LoadBalancer do
     GenServer.cast(randomWorker, :print)
     {:noreply, state}
   end
-
-  def handle_cast({:subscribe, userId, toUserId}, state) do
-    randomWorker = Map.get(state, :workers) |> Enum.random
-    GenServer.cast(randomWorker, {:subscribe, userId, toUserId})
-    {:noreply, state}
-  end
-
-  # def handle_call({:register_user, userId}, _from, state) do
-  #   randomWorker = Map.get(state, :workers) |> Enum.random
-  #   result = GenServer.call(randomWorker, {:register_user, userId, "password"})
-  #   {:reply, result, state}
-  # end
-
 end

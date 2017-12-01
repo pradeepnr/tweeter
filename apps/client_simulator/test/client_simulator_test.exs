@@ -52,4 +52,8 @@ defmodule ClientSimulatorTest do
     ClientUtility.print_feed(feed, "myUserId")
     ClientUtility.print_feed([], "myUserId2")
   end
+
+  test "print_tweet_for_mentions" do
+    ClientUtility.print_tweet_for_mentions("c2-4", [{"c1-3", "tweet1"}, {"c2-4", "tweet2"}, {"c2-5", "tweet3"}])
+  end
 end

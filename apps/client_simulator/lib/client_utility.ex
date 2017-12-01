@@ -99,4 +99,25 @@ defmodule ClientUtility do
     updatedStr = "#{str}RECEIVED #{tweetTypeStr} from #{fromUserId} \n tweet-> #{tweet}\n"
     get_feed_string(restFeed, updatedStr)
   end
+
+  def print_tweet_for_mentions(mentionUserId, tweetContentList) do
+    prefix = "########## SEARCH mentions of #{mentionUserId} #########\n"
+    str = get_tweet_for_mentions(tweetContentList, "")
+    suffix = "############# End of SEARCH mentions #############\n"
+
+    IO.puts "#{prefix}#{str}#{suffix}"
+  end
+
+  def get_tweet_for_mentions([], tweetString) do
+    cond do
+      tweetString == "" ->
+        "     SEARCH EMPTY\n"  
+      true ->
+        tweetString
+    end
+  end  
+
+  def get_tweet_for_mentions([tweetContent | tweetContentList], tweetString) do
+    get_tweet_for_mentions(tweetContentList, "#{tweetString}#{elem(tweetContent, 1)} -> from #{elem(tweetContent, 0)}\n")
+  end
 end

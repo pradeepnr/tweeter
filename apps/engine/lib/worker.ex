@@ -35,6 +35,41 @@ defmodule Worker do
     end
   end
 
+  def handle_call({:get_mentions_list, mention}, _from, state) do
+    commonDB = Map.get(state, :common_db)
+    userDbTuple = Map.get(state, :user_dbs)
+    mentionsTweetIdList =
+    Enum.reduce(
+      0..tuple_size(userDbTuple)-1,
+      [],
+      fn(i, listAcc)->
+        tweetIdList = GenServer.call(elem(userDbTuple, i), {:get_tweets_having_mentions, mention})
+        cond do
+          tweetIdList == nil -> 
+            listAcc
+          true ->
+            tweetIdList ++ listAcc
+        end
+      end
+    )
+
+    tweetList =
+    Enum.reduce(
+      mentionsTweetIdList,
+      [],
+      fn(tweetId, acc)->
+        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId})
+        cond do
+          tweetContent == nil ->
+            acc
+          true ->
+            [tweetContent | acc]
+        end
+      end
+    )
+    {:reply, tweetList, state}
+  end
+
   def handle_cast({:add_new_user_db, userDBIdList}, state) do
     currentUserDBs = Map.get(state, :user_dbs)
 
