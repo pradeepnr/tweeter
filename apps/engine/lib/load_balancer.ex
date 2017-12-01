@@ -92,6 +92,19 @@ defmodule LoadBalancer do
     end
   end
 
+  def handle_cast({:search_hash_tag, sessionKey, userId, hashTag}, state) do
+    validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
+    if(validateSessionResult == true) do
+      randomWorker = Map.get(state, :workers) |> Enum.random
+      tweetList = GenServer.call(randomWorker, {:get_hash_tag_list, hashTag})
+      clientPid = Kernel.get_in(state, [:session, sessionKey]) |> elem(1)
+      GenServer.cast(clientPid, {:receive_search_hash_tag, hashTag, tweetList})
+      {:noreply, state}
+    else
+      {:noreply, state}
+    end
+  end
+
   def handle_cast(:initialize, state) do
     {:ok, commonDbPid} = GenServer.start(CommonDB, nil, name: :common_db)
     numOfUserDBs = Map.get(state, :number_of_user_dbs)

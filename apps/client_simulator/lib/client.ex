@@ -4,7 +4,7 @@ defmodule Client do
   @global_engine_name :tweeter_engine
   @redo_tweet_after_login_timer 3000
   @disconnect_timer 5000
-  @redo_tweet_timer 1000
+  @redo_tweet_timer 500
 
   @hash_tag "#happy_days"
 
@@ -76,9 +76,10 @@ defmodule Client do
     sentences = Map.get(state, :sentences)
     randomSentenceId = Enum.random(1..tuple_size(sentences)-1)
     mentionUserId = ClientUtility.get_client_id(masterClientId, 1)
+    randomTag = Enum.random(1..10)
     randomSentenceToTweet = 
     case Enum.random(1..10) do
-      3 -> "#{elem(sentences, randomSentenceId)} #{@hash_tag}"
+      3 -> "#{elem(sentences, randomSentenceId)} #{@hash_tag}#{randomTag}"
       5 -> "#{elem(sentences, randomSentenceId)} @#{mentionUserId}"
       _-> "#{elem(sentences, randomSentenceId)}"
     end
@@ -100,8 +101,13 @@ defmodule Client do
     end
 
     # randon 1/10 probability get hashtap and mentions
-    if Enum.random(2..3) == 3 do
-        GenServer.cast(serverPid(), {:search_mentions, sessionKey, myUserId, mentionUserId})
+
+    if Enum.random(1..10) == 3 do
+      GenServer.cast(serverPid(), {:search_mentions, sessionKey, myUserId, mentionUserId})
+    end
+    if Enum.random(1..10) == 5 do
+        randomTag = Enum.random(1..10)
+        GenServer.cast(serverPid(), {:search_hash_tag, sessionKey, myUserId, "#{@hash_tag}#{randomTag}"})
     end
 
     {:noreply, state}
@@ -111,6 +117,11 @@ defmodule Client do
     masterClientId = Map.get(state, :master_client_id)
     mentionUserId = ClientUtility.get_client_id(masterClientId, 1)
     ClientUtility.print_tweet_for_mentions(mentionUserId, tweetContentList)
+    {:noreply, state}
+  end
+
+  def handle_cast({:receive_search_hash_tag,hashTag, tweetContentList}, state) do
+    ClientUtility.print_tweet_for_hash_tag(hashTag, tweetContentList)
     {:noreply, state}
   end
 

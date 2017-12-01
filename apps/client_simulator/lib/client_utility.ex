@@ -74,10 +74,7 @@ defmodule ClientUtility do
 
   def print_feed(feed, myUserId) do
     str = get_feed_string(feed, "")
-    cond do
-    str == "" ->
-      IO.puts "########## FEED of #{myUserId} #########\n FEED IS EMPTY \n############# End of Feed #############\n"  
-    true ->
+    if str != "" do
       IO.puts "########## FEED of #{myUserId} #########\n#{str}############# End of Feed #############\n"
     end
   end
@@ -102,13 +99,21 @@ defmodule ClientUtility do
 
   def print_tweet_for_mentions(mentionUserId, tweetContentList) do
     prefix = "########## SEARCH mentions of #{mentionUserId} #########\n"
-    str = get_tweet_for_mentions(tweetContentList, "")
+    str = get_tweet_from_tweet_content_list(tweetContentList, "")
     suffix = "############# End of SEARCH mentions #############\n"
 
     IO.puts "#{prefix}#{str}#{suffix}"
   end
 
-  def get_tweet_for_mentions([], tweetString) do
+  def print_tweet_for_hash_tag(hashTag, tweetContentList) do
+    prefix = "########## SEARCH hash tag for #{hashTag} #########\n"
+    str = get_tweet_from_tweet_content_list(tweetContentList, "")
+    suffix = "############# End of SEARCH hash tag #############\n"
+
+    IO.puts "#{prefix}#{str}#{suffix}"
+  end
+
+  def get_tweet_from_tweet_content_list([], tweetString) do
     cond do
       tweetString == "" ->
         "     SEARCH EMPTY\n"  
@@ -117,7 +122,7 @@ defmodule ClientUtility do
     end
   end  
 
-  def get_tweet_for_mentions([tweetContent | tweetContentList], tweetString) do
-    get_tweet_for_mentions(tweetContentList, "#{tweetString}#{elem(tweetContent, 1)} -> from #{elem(tweetContent, 0)}\n")
+  def get_tweet_from_tweet_content_list([tweetContent | tweetContentList], tweetString) do
+    get_tweet_from_tweet_content_list(tweetContentList, "#{tweetString}#{elem(tweetContent, 1)} -> from #{elem(tweetContent, 0)}\n")
   end
 end
