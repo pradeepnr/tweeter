@@ -1,6 +1,7 @@
 defmodule Worker do
   use GenServer
   @recent_feed_size 5
+  @call_timeout 25_000
 
   def init({commonDB, workerId}) do
     IO.inspect self(), label: "worker started->"
@@ -15,7 +16,7 @@ defmodule Worker do
 
   def handle_call({:register_user, userId, password}, _from, state) do
     commonDB = Map.get(state, :common_db)
-    isUserIdExist = GenServer.call(commonDB, {:is_user_id_exist, userId})
+    isUserIdExist = GenServer.call(commonDB, {:is_user_id_exist, userId}, @call_timeout)
     case isUserIdExist do
       true ->
         {:reply, {:failed, "user id already exist!"}, state}
@@ -43,7 +44,7 @@ defmodule Worker do
       0..tuple_size(userDbTuple)-1,
       [],
       fn(i, listAcc)->
-        tweetIdList = GenServer.call(elem(userDbTuple, i), {:get_tweets_having_mentions, mention})
+        tweetIdList = GenServer.call(elem(userDbTuple, i), {:get_tweets_having_mentions, mention}, @call_timeout)
         cond do
           tweetIdList == nil -> 
             listAcc
@@ -58,7 +59,7 @@ defmodule Worker do
       mentionsTweetIdList,
       [],
       fn(tweetId, acc)->
-        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId})
+        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId}, @call_timeout)
         cond do
           tweetContent == nil ->
             acc
@@ -78,7 +79,7 @@ defmodule Worker do
       0..tuple_size(userDbTuple)-1,
       [],
       fn(i, listAcc)->
-        tweetIdList = GenServer.call(elem(userDbTuple, i), {:get_tweets_having_hash_tags, hashTag})
+        tweetIdList = GenServer.call(elem(userDbTuple, i), {:get_tweets_having_hash_tags, hashTag}, @call_timeout)
         cond do
           tweetIdList == nil -> 
             listAcc
@@ -93,7 +94,7 @@ defmodule Worker do
       hashTagTweetIdList,
       [],
       fn(tweetId, acc)->
-        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId})
+        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId}, @call_timeout)
         cond do
           tweetContent == nil ->
             acc
@@ -130,7 +131,7 @@ defmodule Worker do
     tweetId = "tweet#{workerId}#{tweetCount}"
     GenServer.cast(commonDB, {:set_tweet, tweetId, {userId, tweet}})
 
-    userDBId = GenServer.call(commonDB, {:get_user_database_id, userId})
+    userDBId = GenServer.call(commonDB, {:get_user_database_id, userId}, @call_timeout)
     # update hashtags info in userDB
     hashTagsList = Utility.get_hash_tags(tweet)
     if length(hashTagsList) > 0 do
@@ -168,7 +169,7 @@ defmodule Worker do
     # TODO send tweet and tweet id directly to the client
     # tweet id is required inorder to identify the tweet to retweet
     commonDB = Map.get(state, :common_db)
-    {createrUserId, tweet} = GenServer.call(commonDB, {:get_tweet, tweetId})
+    {createrUserId, tweet} = GenServer.call(commonDB, {:get_tweet, tweetId}, @call_timeout)
     Utility.send_tweet_to_clients(tweetFromUserId, createrUserId, tweet, tweetId, activeUsersPidList)
     {:noreply, state}
   end
@@ -176,7 +177,7 @@ defmodule Worker do
   def handle_cast({:retweet, retweeterUserId, tweetId}, state) do
     commonDB = Map.get(state, :common_db)
     #rest all steps do as tweet
-    userDBId = GenServer.call(commonDB, {:get_user_database_id, retweeterUserId})
+    userDBId = GenServer.call(commonDB, {:get_user_database_id, retweeterUserId}, @call_timeout)
     GenServer.cast(self(), {:distribute_tweet, userDBId, tweetId, retweeterUserId})
     {:noreply, state}
   end
@@ -184,7 +185,7 @@ defmodule Worker do
   def handle_cast({:subscribe, subscriber, toUserId}, state) do
     commonDB = Map.get(state, :common_db)
     if GenServer.call(commonDB, {:is_user_id_exist, toUserId}) do
-        toUserDBId = GenServer.call(commonDB, {:get_user_database_id, toUserId})
+        toUserDBId = GenServer.call(commonDB, {:get_user_database_id, toUserId}, @call_timeout)
         GenServer.cast(toUserDBId, {:update_user_subscribers_set, toUserId, subscriber})
     end
     # TODO updated following list
@@ -206,7 +207,7 @@ defmodule Worker do
     commonDB = Map.get(state, :common_db)
     userDBId = GenServer.call(commonDB, {:get_user_database_id, userId})
     GenServer.cast(userDBId, {:user_id_active, userId, pid})
-    feedIds = GenServer.call(userDBId, {:get_feeds, userId})
+    feedIds = GenServer.call(userDBId, {:get_feeds, userId}, @call_timeout)
     topFeed = Utility.get_recent_feed(commonDB, feedIds, @recent_feed_size, [])
     GenServer.cast(pid, {:receive_recent_feed, topFeed})
     {:noreply, state}
@@ -214,7 +215,7 @@ defmodule Worker do
 
   def handle_cast({:user_inactive, userId}, state) do
     commonDB = Map.get(state, :common_db)
-    userDBId = GenServer.call(commonDB, {:get_user_database_id, userId})
+    userDBId = GenServer.call(commonDB, {:get_user_database_id, userId}, @call_timeout)
     GenServer.cast(userDBId, {:user_id_inactive, userId})
     {:noreply, state}
   end

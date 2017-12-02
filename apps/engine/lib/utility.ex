@@ -1,5 +1,5 @@
 defmodule Utility do
-
+  @call_timeout 25_000
   def isInteger(val) do
         try do
           _ = String.to_integer(val)
@@ -115,7 +115,7 @@ defmodule Utility do
       mentionsList,
       %{}, # initial value of accumulator
       fn (mentions, userDbMentionsMapAcc) ->
-        userDbId = GenServer.call(commonDB, {:get_user_database_id, mentions})
+        userDbId = GenServer.call(commonDB, {:get_user_database_id, mentions}, @call_timeout)
         cond do
           userDbId == nil ->
             userDbMentionsMapAcc
@@ -134,13 +134,13 @@ defmodule Utility do
   end
 
   def add_tweet_to_subscribers_feed(userDBId, tweetFromUserId, commonDB, tweetId, workerId) do
-    subscribersList = GenServer.call(userDBId, {:get_subscribers, tweetFromUserId})
+    subscribersList = GenServer.call(userDBId, {:get_subscribers, tweetFromUserId}, @call_timeout)
     dbIdSubscribersMap = 
     Enum.reduce(
       subscribersList,
       %{},
       fn(subscriber, mapAcc) ->
-        dbId = GenServer.call(commonDB, {:get_user_database_id, subscriber})
+        dbId = GenServer.call(commonDB, {:get_user_database_id, subscriber}, @call_timeout)
         case Map.has_key?(mapAcc, dbId) do
           true ->
             currentSubscriberList = Map.get(mapAcc, dbId)
@@ -176,7 +176,7 @@ defmodule Utility do
       true ->
         fromUserId = elem(feedItem, 1)
         tweetId = elem(feedItem, 0)
-        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId})
+        tweetContent = GenServer.call(commonDB, {:get_tweet, tweetId}, @call_timeout)
         tweet = elem(tweetContent, 1)
         tweetCreater = elem(tweetContent, 0)
         tweetType = 

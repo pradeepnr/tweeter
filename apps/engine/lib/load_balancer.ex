@@ -4,9 +4,10 @@ defmodule LoadBalancer do
   @engine_cookie :tweeter_engine_cookie
   @global_engine_name :tweeter_engine
   @tweet_matrix_time 10000
+  @call_timeout 30_000
 
-  def start({numOfUserDBs, numOfWorkers}) do
-    {:ok, loadBalancerPid} = GenServer.start(__MODULE__, {numOfUserDBs, numOfWorkers}, name: :load_balancer)
+  def start({numOfWorkers, numOfUserDBs, }) do
+    {:ok, loadBalancerPid} = GenServer.start(__MODULE__, {numOfWorkers, numOfUserDBs}, name: :load_balancer)
     GenServer.cast(loadBalancerPid, :initialize)
     loadBalancerPid
   end
@@ -28,14 +29,14 @@ defmodule LoadBalancer do
     end
   end
 
-  def init({numOfUserDBs, numOfWorkers}) do
+  def init({numOfWorkers, numOfUserDBs}) do
     IO.inspect self(), label: "load balancer started->"
     res = setup_server()
     case res do
       :ok ->
         state = %{
-          number_of_user_dbs: numOfUserDBs,
           number_of_workers: numOfWorkers,
+          number_of_user_dbs: numOfUserDBs,
           session_number: 0,
           session: %{}, # %{session_key => {userId, pid}}
           workers: [],
@@ -50,7 +51,7 @@ defmodule LoadBalancer do
 
   def handle_call({:register_user, userId, password, userPid}, _from, state) do
     randomWorker = Map.get(state, :workers) |> Enum.random
-    registrationResult = GenServer.call(randomWorker, {:register_user, userId, password})
+    registrationResult = GenServer.call(randomWorker, {:register_user, userId, password}, @call_timeout)
     case registrationResult do
       {:ok,_} ->
         sessionKey = Map.get(state, :session_number)
@@ -67,7 +68,7 @@ defmodule LoadBalancer do
   end
 
   def handle_call({:login, userId, password, userPid}, _from, state) do
-    case GenServer.call(:common_db, {:verify_credentials, userId, password}) do
+    case GenServer.call(:common_db, {:verify_credentials, userId, password}, @call_timeout) do
       nil ->
         {:reply, {:failed, "invalid username/password"}, state}
       :ok ->
@@ -86,7 +87,7 @@ defmodule LoadBalancer do
     validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
     if(validateSessionResult == true) do
       randomWorker = Map.get(state, :workers) |> Enum.random
-      tweetList = GenServer.call(randomWorker, {:get_mentions_list, mention})
+      tweetList = GenServer.call(randomWorker, {:get_mentions_list, mention}, @call_timeout)
       clientPid = Kernel.get_in(state, [:session, sessionKey]) |> elem(1)
       GenServer.cast(clientPid, {:receive_search_mentions, tweetList})
       {:noreply, state}
@@ -99,7 +100,7 @@ defmodule LoadBalancer do
     validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
     if(validateSessionResult == true) do
       randomWorker = Map.get(state, :workers) |> Enum.random
-      tweetList = GenServer.call(randomWorker, {:get_hash_tag_list, hashTag})
+      tweetList = GenServer.call(randomWorker, {:get_hash_tag_list, hashTag}, @call_timeout)
       clientPid = Kernel.get_in(state, [:session, sessionKey]) |> elem(1)
       GenServer.cast(clientPid, {:receive_search_hash_tag, hashTag, tweetList})
       {:noreply, state}
@@ -120,7 +121,7 @@ defmodule LoadBalancer do
       end
     )
 
-    numOfworkers = Map.get(state, :number_of_user_dbs)
+    numOfworkers = Map.get(state, :number_of_workers)
     workerList = 
     Enum.reduce(1..numOfworkers,
       [],
@@ -171,6 +172,8 @@ defmodule LoadBalancer do
   end
 
   def handle_cast({:retweet, sessionKey, userId, msgId}, state) do
+    tweetCount = Map.get(state, :tweet_count)
+    state = Map.put(state, :tweet_count, tweetCount+1)
     validateSessionResult = Map.get(state, :session) |> validate_session(sessionKey, userId)
     if(validateSessionResult == true) do
       randomWorker = Map.get(state, :workers) |> Enum.random
@@ -193,7 +196,7 @@ defmodule LoadBalancer do
       tweetCount = Map.get(state, :tweet_count)
       if tweetCount > 0 do
         tweetsPerSec = tweetCount * 1000 |> Kernel.div(@tweet_matrix_time)
-        IO.puts "#{tweetsPerSec} Tweets per Second"
+        IO.puts "#{tweetsPerSec} Tweets/Retweets per Second"
       end
       state = Map.put(state, :tweet_count, 0)
       Process.send_after(self(), :calculate_tweet_matrix, @tweet_matrix_time) 

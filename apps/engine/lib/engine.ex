@@ -1,7 +1,16 @@
 defmodule Engine do
-  def main(_args) do
+  def main(args) do
       # IO.inspect args, label: "args->"
-      res = LoadBalancer.start({4,4})
+      [workers, userDbs] =
+      cond do
+        length(args)==2 ->
+          [w,u] = args
+          [String.to_integer(w), String.to_integer(u)]
+        true ->
+          [4,4]
+      end
+
+      res = LoadBalancer.start({workers, userDbs})
       if res==:fail do
         IO.puts "failed to start"
       else

@@ -4,7 +4,7 @@ defmodule Client do
   @global_engine_name :tweeter_engine
   @redo_tweet_after_login_timer 3000
   @disconnect_timer 5000
-  @redo_tweet_timer 100
+  @redo_tweet_timer 1000
 
   @hash_tag "#happy_days"
 
@@ -24,7 +24,7 @@ defmodule Client do
     }
     
     #register
-    {registerResult, info} = GenServer.call(serverPid(), {:register_user, ClientUtility.get_client_id(masterClientId, myId), @password, self()})
+    {registerResult, info} = GenServer.call(serverPid(), {:register_user, ClientUtility.get_client_id(masterClientId, myId), @password, self()}, 30_000)
     cond do
       readResult == :error ->
         IO.puts "sentences file missing"
@@ -36,7 +36,7 @@ defmodule Client do
 
       true ->
         # IO.puts "registration failed, trying to login"
-        {loginResult, info} = GenServer.call(serverPid(), {:login, ClientUtility.get_client_id(masterClientId, myId), @password, self()})
+        {loginResult, info} = GenServer.call(serverPid(), {:login, ClientUtility.get_client_id(masterClientId, myId), @password, self()}, 30_000)
         cond do
           :ok == loginResult ->
             # IO.puts "login succesfull"
@@ -92,7 +92,7 @@ defmodule Client do
 
     # randon 1/5 probability logoff
     cond do
-      Enum.random(1..5) == 3 ->
+      Enum.random(1..25) == 3 ->
         GenServer.cast(serverPid(), {:logout, sessionKey, myUserId})
         Process.send_after(self(), {:cast, {self(),{:relogin}}}, @disconnect_timer)
         IO.puts "#{myUserId} will logoff for #{@disconnect_timer} time"
@@ -102,10 +102,10 @@ defmodule Client do
 
     # randon 1/10 probability get hashtap and mentions
 
-    if Enum.random(1..10) == 3 do
+    if Enum.random(1..25) == 3 do
       GenServer.cast(serverPid(), {:search_mentions, sessionKey, myUserId, mentionUserId})
     end
-    if Enum.random(1..10) == 5 do
+    if Enum.random(1..25) == 5 do
         randomTag = Enum.random(1..10)
         GenServer.cast(serverPid(), {:search_hash_tag, sessionKey, myUserId, "#{@hash_tag}#{randomTag}"})
     end
@@ -137,7 +137,7 @@ defmodule Client do
       str4 = "###############\n"
       IO.puts "#{str1}#{str2}#{str3}#{str4}"
       # randon 1:10 times retweet
-      if Enum.random(1..10) == 9 do
+      if Enum.random(1..25) == 9 do
         str1 = "####### RETWEETING ########\n"
         str2 = "#{myUserId} Retweeting\n"
         str3 = "tweet -> #{tweet}\n"
@@ -152,7 +152,7 @@ defmodule Client do
       str4 = "###############\n"
       IO.puts "#{str1}#{str2}#{str3}#{str4}"
       #TODO randon 1:20 times retweet
-      if Enum.random(1..20) == 9 do
+      if Enum.random(1..25) == 9 do
         str1 = "####### RETWEETING ########\n"
         str2 = "#{myUserId} Retweeting\n"
         str3 = "tweet -> #{tweet}\n"
@@ -168,7 +168,7 @@ defmodule Client do
     masterClientId = Map.get(state, :master_client_id)
     myId = Map.get(state, :my_id)
     myUserId = ClientUtility.get_client_id(masterClientId, myId)
-    {loginResult, info} = GenServer.call(serverPid(), {:login, myUserId, @password, self()})
+    {loginResult, info} = GenServer.call(serverPid(), {:login, myUserId, @password, self()}, 30_000)
         cond do
           :ok == loginResult ->
             IO.puts "#{myUserId} Re-login succesfull"
